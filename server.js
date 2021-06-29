@@ -6,11 +6,13 @@ const fs = require('fs');
 
 async function main() {
   const browser = await puppeteer.launch({
-    headless: false, args: [
+    headless: false,
+    args: [
       '--start-maximized',
     ],
-    defaultViewport: null,
+    defaultViewport: null
   });
+
   const page = await browser.newPage();
 
   // await this.clickIfPresent('.bloc .bouton_valider');
@@ -29,12 +31,12 @@ async function crawlAllClubs(page) {
   /**
    * INPUTS
    */
-  const NUMBER_CLUBS_CRAWLED = 552;
-  const DISTANCE_MAX_VALUE = 30;
-  const BEGIN_PAGE = 10;
+  const NUMBER_CLUBS_CRAWLED = 170;
+  const DISTANCE_MAX_VALUE = 131;
+  const BEGIN_PAGE = 26;
 
   page.goto('https://tenup.fft.fr/recherche/clubs');
-  await page.waitFor(7000);
+  await page.waitForTimeout(7000);
   await page.reload();
 
   const allClubs = [];
@@ -42,8 +44,10 @@ async function crawlAllClubs(page) {
   let increment = 1;
   let totalIncrement = 1;
 
+  let goBackErrorNumber = 0;
+
   //await page.type('#autocomplete-custom-search-input', 'Auvergne-Rhône-Alpes, France');
-  await page.type('#autocomplete-custom-search-input', 'Paris');
+  await page.type('#autocomplete-custom-search-input', 'Rennes, France');
   await page.waitForSelector('.autocomplete-result-list li:nth-child(1)');
 
   await clickIfPresent(page, '.autocomplete-result-list li:nth-child(1)')
@@ -65,21 +69,28 @@ async function crawlAllClubs(page) {
     document.querySelector('.loader-btn').click();
   }, DISTANCE_MAX_VALUE)
 
-  await page.waitFor(2000);
+  await page.waitForTimeout(2000);
 
   await Promise.all([
     page.waitForNavigation(),
-    clickIfPresent(page, '.loader-btn'),
-    page.waitForSelector('.result-left .result-cards-container')
+    clickIfPresent(page, '.loader-btn')
   ]);
 
+  await page.waitForSelector('.result-left .result-cards-container')
+
+  await goToPage(page, totalIncrement, BEGIN_PAGE);
+
   do {
+
+    await page.waitForTimeout(1000);
+
     try {
       await Promise.all([
         page.waitForNavigation(),
         clickIfPresent(page, `.result-left .result-cards-container > .card-content:nth-child(${increment})`),
-        page.waitForSelector('ul.menu.nav')
       ]);
+
+      await page.waitForSelector('.container-content-ficheClub');
 
       const club = await page.evaluate(() => {
         let title = document.querySelector('h1.main-title');
@@ -154,7 +165,7 @@ async function crawlAllClubs(page) {
         }
       });
 
-      await page.waitFor(200);
+      await page.waitForTimeout(500);
 
       const membersNumberLastYear = await page.evaluate(() => {
         let membersNumberLastYear = document.querySelector('div.block-effectif-club--list > div:nth-child(1) > div > div > div.effectif-chiffre');
@@ -176,14 +187,10 @@ async function crawlAllClubs(page) {
       await page.goBack();
       await page.goBack();
 
-      // todo: fix because the is not every link for each page. We will need a tricks :))
-      const pageNumber = Math.floor(totalIncrement / 20) + BEGIN_PAGE;
-      await clickIfPresent(page, `#recherche-tournois-pagination > div > ul > li:nth-child(${pageNumber}) > a`);
-
-      await page.waitFor(500);
-
+      await goToPage(page, totalIncrement, BEGIN_PAGE);
     } catch (error) {
       console.log('GO BACK ERROR:' + error)
+      goBackErrorNumber++;
     }
 
     if ((increment % 20) === 0) {
@@ -194,11 +201,26 @@ async function crawlAllClubs(page) {
 
     totalIncrement++;
 
-  } while (totalIncrement <= NUMBER_CLUBS_CRAWLED)
+  } while ((totalIncrement <= NUMBER_CLUBS_CRAWLED) && (goBackErrorNumber < 10))
 
   //console.log(allClubs);
 
   createCSV(allClubs)
+}
+
+async function goToPage (page, increment, beginPage) {
+  await clickIfPresent(page, `#recherche-tournois-pagination > div > ul > li:nth-child(7) > a`);
+  await clickIfPresent(page, `#recherche-tournois-pagination > div > ul > li:nth-child(10) > a`);
+
+  const pageNumber = Math.floor(increment / 20) + beginPage;
+
+  let _counter = 0;
+  while((pageNumber - _counter) > 10) {
+    await clickIfPresent(page, `#recherche-tournois-pagination > div > ul > li.next > a`);
+    _counter++;
+  }
+
+  await page.waitForTimeout(700);
 }
 
 function createCSV(clubs) {
