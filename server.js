@@ -6,11 +6,11 @@ const fs = require('fs');
 
 async function main() {
   const browser = await puppeteer.launch({
-    headless: false,
-    args: [
+    headless: true,
+    /*args: [
       '--start-maximized',
     ],
-    defaultViewport: null
+    defaultViewport: null*/
   });
 
   const page = await browser.newPage();
@@ -31,9 +31,9 @@ async function crawlAllClubs(page) {
   /**
    * INPUTS
    */
-  const NUMBER_CLUBS_CRAWLED = 170;
-  const DISTANCE_MAX_VALUE = 131;
-  const BEGIN_PAGE = 26;
+  const NUMBER_CLUBS_CRAWLED = 68;
+  const DISTANCE_MAX_VALUE = 50;
+  const BEGIN_PAGE = 1;
 
   page.goto('https://tenup.fft.fr/recherche/clubs');
   await page.waitForTimeout(7000);
@@ -46,8 +46,8 @@ async function crawlAllClubs(page) {
 
   let goBackErrorNumber = 0;
 
-  //await page.type('#autocomplete-custom-search-input', 'Auvergne-Rhône-Alpes, France');
-  await page.type('#autocomplete-custom-search-input', 'Rennes, France');
+  //
+  await page.type('#autocomplete-custom-search-input', 'Poitiers, France');
   await page.waitForSelector('.autocomplete-result-list li:nth-child(1)');
 
   await clickIfPresent(page, '.autocomplete-result-list li:nth-child(1)')
@@ -201,7 +201,7 @@ async function crawlAllClubs(page) {
 
     totalIncrement++;
 
-  } while ((totalIncrement <= NUMBER_CLUBS_CRAWLED) && (goBackErrorNumber < 10))
+  } while ((totalIncrement <= NUMBER_CLUBS_CRAWLED) && (goBackErrorNumber < 3))
 
   //console.log(allClubs);
 
@@ -209,13 +209,19 @@ async function crawlAllClubs(page) {
 }
 
 async function goToPage (page, increment, beginPage) {
-  await clickIfPresent(page, `#recherche-tournois-pagination > div > ul > li:nth-child(7) > a`);
-  await clickIfPresent(page, `#recherche-tournois-pagination > div > ul > li:nth-child(10) > a`);
-
   const pageNumber = Math.floor(increment / 20) + beginPage;
+  let offset = 1;
 
+  if (pageNumber > 7) {
+    await clickIfPresent(page, `#recherche-tournois-pagination > div > ul > li:nth-child(7) > a`);
+    offset = 7;
+  }
+  if (pageNumber >= 10) {
+    await clickIfPresent(page, `#recherche-tournois-pagination > div > ul > li:nth-child(10) > a`);
+    offset = 10;
+  }
   let _counter = 0;
-  while((pageNumber - _counter) > 10) {
+  while((pageNumber - _counter) > offset) {
     await clickIfPresent(page, `#recherche-tournois-pagination > div > ul > li.next > a`);
     _counter++;
   }
